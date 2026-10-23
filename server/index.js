@@ -1,77 +1,157 @@
-const express = require('express')
-const request = require('request');
+/*
+ * Auth server for the web player.
+ *
+ * CHANGES (spotify-redesign):
+ * - Replaced the deprecated `request` package with Node's built-in `fetch`
+ *   (Node 18+). `request` has been unmaintained since 2020 and pulled in a
+ *   pile of vulnerable transitive dependencies.
+ * - `access_token` was an implicit global (assigned without `let`/`var`),
+ *   which only worked because the file isn't in strict mode. Token state now
+ *   lives in one explicit `tokens` object.
+ * - The OAuth `state` value was generated but never checked, which left the
+ *   login open to CSRF. We now remember issued states and reject callbacks
+ *   whose state we didn't issue.
+ * - If the token exchange failed, the callback never responded and the
+ *   browser hung forever. Every path now responds.
+ * - Spotify access tokens expire after an hour. We now keep the refresh
+ *   token and transparently refresh in /auth/token, so the player keeps
+ *   working in long sessions.
+ * - Added /auth/logout so the UI can offer a "Log out" button.
+ * - Added the scopes the new UI needs: reading/modifying playback state lets
+ *   us transfer playback to the browser with one click and toggle
+ *   shuffle/repeat.
+ * - Port and redirect URI can be overridden with env vars instead of being
+ *   hard-coded.
+ */
+const express = require('express');
+const crypto = require('crypto');
 const dotenv = require('dotenv');
 
-const port = 8080
+dotenv.config();
 
-global.access_token = ''
+const port = process.env.PORT || 8080;
 
-dotenv.config()
+const spotifyClientId = process.env.SPOTIFY_CLIENT_ID;
+const spotifyClientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+const spotifyRedirectUri = process.env.SPOTIFY_REDIRECT_URI || 'http://localhost:3000/auth/callback';
 
-var spotify_client_id = process.env.SPOTIFY_CLIENT_ID
-var spotify_client_secret = process.env.SPOTIFY_CLIENT_SECRET
+// CHANGED: fail fast with a clear message instead of a confusing Spotify
+// error page later on.
+if (!spotifyClientId || !spotifyClientSecret) {
+  console.error('Missing SPOTIFY_CLIENT_ID or SPOTIFY_CLIENT_SECRET. See README.md for setup.');
+  process.exit(1);
+}
 
-var spotify_redirect_uri = 'http://localhost:3000/auth/callback'
+const scope = [
+  'streaming',
+  'user-read-email',
+  'user-read-private',
+  'user-read-playback-state', // NEW: needed to read shuffle/repeat state
+  'user-modify-playback-state', // NEW: needed for "Play here" and shuffle/repeat toggles
+].join(' ');
 
-var generateRandomString = function (length) {
-  var text = '';
-  var possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-  for (var i = 0; i < length; i++) {
-    text += possible.charAt(Math.floor(Math.random() * possible.length));
-  }
-  return text;
+// CHANGED: one explicit place for token state (previously an implicit global).
+// This is a single-user local demo, so in-memory storage is fine.
+const tokens = {
+  accessToken: '',
+  refreshToken: '',
+  expiresAt: 0,
 };
 
-var app = express();
+// CHANGED: remember issued OAuth states so the callback can verify them.
+const pendingStates = new Set();
+
+// CHANGED: crypto.randomBytes instead of Math.random, which isn't
+// cryptographically secure and shouldn't be used for security tokens.
+const generateRandomString = (length) => crypto.randomBytes(length).toString('hex').slice(0, length);
+
+// NEW: shared helper for both the initial code exchange and refreshes.
+async function requestToken(params) {
+  const response = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(`${spotifyClientId}:${spotifyClientSecret}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams(params),
+  });
+  if (!response.ok) {
+    throw new Error(`Spotify token request failed: ${response.status} ${await response.text()}`);
+  }
+  const body = await response.json();
+  tokens.accessToken = body.access_token;
+  // Spotify only sometimes returns a new refresh token; keep the old one otherwise.
+  tokens.refreshToken = body.refresh_token || tokens.refreshToken;
+  // Refresh a minute early so we never hand out a token that's about to expire.
+  tokens.expiresAt = Date.now() + (body.expires_in - 60) * 1000;
+}
+
+const app = express();
 
 app.get('/auth/login', (req, res) => {
+  const state = generateRandomString(16);
+  pendingStates.add(state);
 
-  var scope = "streaming user-read-email user-read-private"
-  var state = generateRandomString(16);
-
-  var auth_query_parameters = new URLSearchParams({
-    response_type: "code",
-    client_id: spotify_client_id,
-    scope: scope,
-    redirect_uri: spotify_redirect_uri,
-    state: state
-  })
-
-  res.redirect('https://accounts.spotify.com/authorize/?' + auth_query_parameters.toString());
-})
-
-app.get('/auth/callback', (req, res) => {
-
-  var code = req.query.code;
-
-  var authOptions = {
-    url: 'https://accounts.spotify.com/api/token',
-    form: {
-      code: code,
-      redirect_uri: spotify_redirect_uri,
-      grant_type: 'authorization_code'
-    },
-    headers: {
-      'Authorization': 'Basic ' + (Buffer.from(spotify_client_id + ':' + spotify_client_secret).toString('base64')),
-      'Content-Type' : 'application/x-www-form-urlencoded'
-    },
-    json: true
-  };
-
-  request.post(authOptions, function(error, response, body) {
-    if (!error && response.statusCode === 200) {
-      access_token = body.access_token;
-      res.redirect('/')
-    }
+  const authQueryParameters = new URLSearchParams({
+    response_type: 'code',
+    client_id: spotifyClientId,
+    scope,
+    redirect_uri: spotifyRedirectUri,
+    state,
   });
 
-})
+  res.redirect('https://accounts.spotify.com/authorize/?' + authQueryParameters.toString());
+});
 
-app.get('/auth/token', (req, res) => {
-  res.json({ access_token: access_token})
-})
+app.get('/auth/callback', async (req, res) => {
+  const { code, state, error } = req.query;
+
+  // NEW: the user clicked "Cancel" on Spotify's consent screen.
+  if (error) {
+    return res.redirect('/?error=' + encodeURIComponent(error));
+  }
+
+  // NEW: CSRF protection, so only accept callbacks for logins we started.
+  if (!state || !pendingStates.has(state)) {
+    return res.redirect('/?error=state_mismatch');
+  }
+  pendingStates.delete(state);
+
+  try {
+    await requestToken({
+      code,
+      redirect_uri: spotifyRedirectUri,
+      grant_type: 'authorization_code',
+    });
+    res.redirect('/');
+  } catch (err) {
+    // CHANGED: previously this path never responded and the page hung.
+    console.error(err);
+    res.redirect('/?error=token_exchange_failed');
+  }
+});
+
+app.get('/auth/token', async (req, res) => {
+  // NEW: transparently refresh expired tokens.
+  if (tokens.accessToken && Date.now() >= tokens.expiresAt && tokens.refreshToken) {
+    try {
+      await requestToken({ grant_type: 'refresh_token', refresh_token: tokens.refreshToken });
+    } catch (err) {
+      console.error(err);
+      tokens.accessToken = '';
+    }
+  }
+  res.json({ access_token: tokens.accessToken });
+});
+
+// NEW: lets the UI log the user out.
+app.post('/auth/logout', (req, res) => {
+  tokens.accessToken = '';
+  tokens.refreshToken = '';
+  tokens.expiresAt = 0;
+  res.sendStatus(204);
+});
 
 app.listen(port, () => {
-  console.log(`Listening at http://localhost:${port}`)
-})
+  console.log(`Listening at http://localhost:${port}`);
+});

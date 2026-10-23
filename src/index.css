@@ -1,13 +1,91 @@
-body {
+/*
+ * Global base styles.
+ *
+ * CHANGES (spotify-redesign):
+ * - Moved every colour, radius and font into CSS custom properties (design
+ *   tokens), so the whole theme can be retuned from one place.
+ * - Palette follows Spotify's dark UI: near-black backgrounds, #1ed760 green
+ *   accent, white/grey text.
+ * - Font switched to Figtree (loaded in public/index.html), a free geometric
+ *   sans that's close to Spotify's own Circular typeface.
+ * - The reset that used to live at the top of App.css moved here, since it
+ *   applies to the whole page.
+ */
+:root {
+  --green: #1ed760;
+  --green-hover: #3be477;
+  --black: #000;
+  --bg: #121212;
+  --bg-elevated: #1f1f1f;
+  --bg-highlight: #2a2a2a;
+  --text: #fff;
+  --text-subdued: #b3b3b3;
+  --text-muted: #727272;
+  --border: #2a2a2a;
+  --danger: #e91429;
+
+  --radius: 8px;
+  --player-height: 80px;
+  --font: 'Figtree', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background: var(--black);
+  color: var(--text);
+  font-family: var(--font);
+  /* CHANGED: was 3vmin, which made text tiny on phones and huge on big monitors. */
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+/* Visible focus ring for keyboard users (missing entirely before). */
+:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+img {
+  display: block;
+  background: var(--bg-highlight);
+}
+
+kbd {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-highlight);
+  border: 1px solid #3e3e3e;
+  color: var(--text);
 }

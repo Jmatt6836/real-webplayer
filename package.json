@@ -1,10 +1,10 @@
 {
-  "name": "web-playback-sdk-sample-app",
+  "name": "real-webplayer",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
     "react-scripts": "^5.0.1"
   },
   "scripts": {
@@ -28,10 +28,21 @@
     ]
   },
   "devDependencies": {
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@testing-library/jest-dom": "^5.17.0",
+    "@testing-library/react": "^14.3.1",
     "dotenv": "^10.0.0",
     "express": "^4.18.2",
     "http-proxy-middleware": "^2.0.0",
-    "npm-run-all": "^4.1.5",
-    "request": "^2.88.2"
+    "npm-run-all": "^4.1.5"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "eslintConfig": {
+    "extends": [
+      "react-app",
+      "react-app/jest"
+    ]
   }
 }

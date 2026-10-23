@@ -1,117 +1,835 @@
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+/*
+ * Component styles for the Spotify-style theme.
+ *
+ * CHANGES (spotify-redesign): this file was rewritten from scratch.
+ * - Removed unused leftovers: `.hidden`, `.background`, `.main-container`,
+ *   `.now-playing__status` and the create-react-app `.App` / `.App-header`
+ *   rules. None of them were referenced anywhere.
+ * - The old layout depended on `float` and fixed pixel widths, and it broke on
+ *   small screens. The new one uses CSS grid and flexbox and adapts down to
+ *   phone widths (see the media queries at the bottom).
+ * - All colours come from the tokens in index.css.
+ */
+
+/* ---------- Buttons ---------- */
+
+/* Spotify's signature pill button. Replaces the old `.btn-spotify`, which had
+   a text-shadow, a 1px border and a mismatched green (#44c767). */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 32px;
+  border-radius: 999px;
+  background: var(--green);
+  color: var(--black);
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform 0.1s ease, background-color 0.15s ease;
 }
 
-html, body {
+.btn-primary:hover:not(:disabled) {
+  background: var(--green-hover);
+  transform: scale(1.04);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: scale(1);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+}
+
+.btn-primary--large {
+  padding: 16px 48px;
+  font-size: 17px;
+}
+
+/* Round play/pause button. White in the player bar, green on the page. */
+.btn-play {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--text);
+  color: var(--black);
+  transition: transform 0.1s ease;
+}
+
+.btn-play:hover:not(:disabled) {
+  transform: scale(1.06);
+}
+
+.btn-play:disabled {
+  opacity: 0.4;
+}
+
+.btn-play--large {
+  width: 56px;
+  height: 56px;
+  background: var(--green);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+.btn-play--large:hover {
+  background: var(--green-hover);
+}
+
+/* Icon-only buttons (shuffle, skip, repeat, volume). */
+.btn-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-subdued);
+  transition: color 0.15s ease, transform 0.1s ease;
+}
+
+.btn-icon:hover:not(:disabled) {
+  color: var(--text);
+  transform: scale(1.06);
+}
+
+.btn-icon:disabled {
+  opacity: 0.4;
+}
+
+/* "On" state for shuffle/repeat: green icon with a dot underneath, like Spotify. */
+.btn-icon--on,
+.btn-icon--on:hover:not(:disabled) {
+  color: var(--green);
+}
+
+.btn-icon--on::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--green);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #7c7c7c;
+  color: var(--text);
+  font-weight: 700;
+  font-size: 14px;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+
+.btn-ghost:hover {
+  border-color: var(--text);
+  transform: scale(1.04);
+}
+
+/* ---------- Loading splash ---------- */
+
+.splash {
+  display: grid;
+  place-items: center;
   height: 100%;
+  background: var(--bg);
 }
 
-body {
-  background-color: #333;
-  color: #eee;
-  font-family: Helvetica, Arial;
-  font-size: 3vmin;
+.spinner {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 4px solid var(--bg-highlight);
+  border-top-color: var(--green);
+  animation: spin 0.8s linear infinite;
 }
 
-.App {
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Login ---------- */
+
+.login {
+  display: grid;
+  place-items: center;
+  min-height: 100%;
+  padding: 24px;
+  background: radial-gradient(circle at 50% 0%, #1f3d2b 0%, var(--bg) 60%);
+}
+
+.login__card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  width: 100%;
+  max-width: 420px;
+  padding: 48px 32px;
+  border-radius: var(--radius);
+  background: rgba(0, 0, 0, 0.55);
   text-align: center;
 }
 
-.App-header {
-  background-color: #282c34;
-  min-height: 100vh;
+.login__title {
+  font-size: clamp(32px, 6vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.1;
+}
+
+.login__subtitle {
+  color: var(--text-subdued);
+  margin-bottom: 16px;
+}
+
+.login__error {
+  width: 100%;
+  padding: 12px 16px;
+  border-radius: 4px;
+  background: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.login__fineprint {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ---------- App shell ---------- */
+
+/* Three-region layout like Spotify desktop: sidebar, main view and a
+   full-width player bar, separated by thin black gutters. */
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) var(--player-height);
+  gap: 8px;
+  height: 100%;
+  padding: 8px 8px 0;
+  background: var(--black);
+}
+
+/* ---------- Sidebar ---------- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+}
+
+.sidebar__panel {
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.sidebar__panel--grow {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  overflow-y: auto;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brand__mark {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--green);
+  color: var(--black);
+  flex-shrink: 0;
+}
+
+.brand__mark--large {
+  width: 72px;
+  height: 72px;
+}
+
+.sidebar__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+  color: var(--text-subdued);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.device-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: 6px;
+  background: var(--bg-elevated);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.device-status__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.device-status--ready .device-status__dot {
+  background: var(--text);
+}
+
+.device-status--live {
+  color: var(--green);
+}
+
+.device-status--live .device-status__dot {
+  background: var(--green);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.shortcuts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px 12px;
+  align-items: center;
+  padding: 0 4px;
+  font-size: 14px;
+  color: var(--text-subdued);
+}
+
+.sidebar__logout {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+/* ---------- Main view ---------- */
+
+.main {
+  position: relative;
+  min-height: 0;
+  overflow-y: auto;
+  border-radius: var(--radius);
+  background: var(--bg);
+}
+
+.banner {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 24px;
+  background: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.banner__close {
+  font-size: 22px;
+  line-height: 1;
+  opacity: 0.8;
+}
+
+.banner__close:hover {
+  opacity: 1;
+}
+
+/* Shown until playback is transferred to this browser. */
+.inactive {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  gap: 16px;
+  min-height: 100%;
+  padding: 48px 24px;
+  text-align: center;
+  background: linear-gradient(180deg, #1f3d2b 0%, var(--bg) 70%);
 }
 
-.hidden {
-  display: none;
+.inactive__icon {
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  margin-bottom: 8px;
+  border-radius: 50%;
+  background: var(--bg-highlight);
+  color: var(--green);
 }
 
-
-.background {
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
-  background-size: cover;
-  background-position: center center;
-  /*filter: blur(8em) opacity(0.6);*/
-  position: absolute;
+.inactive__title {
+  font-size: clamp(28px, 4vw, 40px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.1;
 }
 
-.main-wrapper {
-  padding-top: 45px;
-  align-items: center;
+.inactive__text {
+  max-width: 440px;
+  margin-bottom: 8px;
+  color: var(--text-subdued);
+}
+
+/* ---------- Now Playing ---------- */
+
+.now-playing__hero {
   display: flex;
-  height: 100%;
-  margin: 0 auto;
-  justify-content: center;
-  position: relative;
-  width: 80%;
-  z-index: 1;
-}
-
-.container {
-  align-items: center;
-  display: flex;
-  justify-content: center;
-  height: 100%;
-}
-
-.main-container {
-  flex: 1;
-}
-
-.now-playing__name {
-  font-size: 1.5em;
-  margin-bottom: 0.2em;
-}
-
-.now-playing__artist {
-  margin-bottom: 1em;
-}
-
-.now-playing__status {
-  margin-bottom: 1em;
+  align-items: flex-end;
+  gap: 24px;
+  padding: 72px 32px 24px;
+  /* --hero-color is set inline from the album art; the dark gradient on top
+     keeps white text readable whatever the colour. */
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.5) 100%), var(--hero-color);
+  transition: background-color 0.6s ease;
 }
 
 .now-playing__cover {
-  border-radius: 8px;
-  float: left;
-  margin-right: 10px;
+  width: clamp(160px, 22vw, 232px);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  border-radius: 4px;
+  object-fit: cover;
+  box-shadow: 0 4px 60px rgba(0, 0, 0, 0.5);
+}
+
+.now-playing__info {
+  min-width: 0;
+}
+
+.eyebrow {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.now-playing__title {
+  margin: 4px 0 12px;
+  font-size: clamp(32px, 5.5vw, 80px);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  /* Long titles wrap at most three lines rather than pushing the page out. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.now-playing__meta {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.now-playing__meta strong {
+  color: var(--text);
+}
+
+.dot {
+  margin: 0 6px;
+}
+
+.now-playing__body {
+  min-height: 50vh;
+  padding: 24px 32px 48px;
+  background: linear-gradient(180deg, rgba(18, 18, 18, 0.6) 0, var(--bg) 240px), var(--hero-color);
+}
+
+.action-bar {
+  margin-bottom: 32px;
+}
+
+.section-title {
+  margin-bottom: 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.track-section + .track-section {
+  margin-top: 40px;
+}
+
+.track-list {
+  list-style: none;
+}
+
+.track-row {
+  display: grid;
+  grid-template-columns: 24px 40px minmax(0, 2fr) minmax(0, 1fr) 48px;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 16px;
+  border-radius: 4px;
+  color: var(--text-subdued);
+  font-size: 14px;
+}
+
+.track-row:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.track-row__index {
   text-align: right;
-  width: 300px;
-  height: 300px;
+  font-variant-numeric: tabular-nums;
 }
 
-.now-playing__side {
-  margin-left: 2%;
-  width: 45%;
+.track-row__art {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+  object-fit: cover;
 }
 
-.btn-spotify {
-  background-color:#44c767;
-  border-radius:28px;
-  border:1px solid #18ab29;
-  display:inline-block;
-  cursor:pointer;
-  color:#ffffff;
-  font-family:Arial;
-  font-size:17px;
-  padding:16px 31px;
-  text-decoration:none;
-  text-shadow:0px 1px 0px #2f6627;
-}
-.btn-spotify:active {
-  position:relative;
-  top:1px;
+.track-row__text,
+.player-bar__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
 }
 
-img { background: transparent; }
+.track-row__name,
+.track-row__artist,
+.track-row__album,
+.player-bar__name,
+.player-bar__artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.track-row__name {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.track-row__duration {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Player bar ---------- */
+
+.player-bar {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 16px;
+  padding: 0 8px;
+}
+
+.player-bar__track {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.player-bar__art {
+  width: 56px;
+  height: 56px;
+  border-radius: 4px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.player-bar__name {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.player-bar__artist {
+  font-size: 12px;
+  color: var(--text-subdued);
+}
+
+.player-bar__empty {
+  font-size: 14px;
+  color: var(--text-muted);
+}
+
+.player-bar__center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: 720px;
+  width: 100%;
+  justify-self: center;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.progress__time {
+  min-width: 40px;
+  font-size: 12px;
+  color: var(--text-subdued);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.player-bar__volume {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.player-bar__volume .slider {
+  max-width: 110px;
+}
+
+/* ---------- Slider (progress + volume) ---------- */
+
+/* --fill is set inline as a percentage. The fill is white and turns green on
+   hover, and the thumb only appears on hover, matching Spotify. */
+.slider {
+  --slider-fill: var(--text);
+  --track: linear-gradient(to right, var(--slider-fill) var(--fill), #4d4d4d var(--fill));
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.slider:hover:not(:disabled),
+.slider:focus-visible {
+  --slider-fill: var(--green);
+}
+
+.slider:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.slider::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border-radius: 50%;
+  background: var(--text);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+  opacity: 0;
+}
+
+.slider:hover:not(:disabled)::-webkit-slider-thumb,
+.slider:focus-visible::-webkit-slider-thumb {
+  opacity: 1;
+}
+
+.slider::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--track);
+}
+
+.slider::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border: none;
+  border-radius: 50%;
+  background: var(--text);
+  opacity: 0;
+}
+
+.slider:hover:not(:disabled)::-moz-range-thumb,
+.slider:focus-visible::-moz-range-thumb {
+  opacity: 1;
+}
+
+/* ---------- Responsive ---------- */
+
+/* Tablets: slimmer sidebar, drop the album column from track lists. */
+@media (max-width: 1024px) {
+  .app-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .track-row {
+    grid-template-columns: 24px 40px minmax(0, 1fr) 48px;
+  }
+
+  .track-row__album {
+    display: none;
+  }
+}
+
+/* Phones: the sidebar collapses into a slim top bar, the hero stacks
+   vertically, and the player bar keeps only the essentials. */
+@media (max-width: 720px) {
+  :root {
+    --player-height: 96px;
+  }
+
+  .app-shell {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) var(--player-height);
+    padding: 0;
+    gap: 0;
+  }
+
+  .sidebar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0;
+    padding: 12px 16px;
+    background: var(--bg);
+  }
+
+  .sidebar__panel {
+    padding: 0;
+    background: none;
+  }
+
+  .sidebar__panel--grow {
+    flex: 0 1 auto;
+    flex-direction: row;
+    align-items: center;
+    overflow: visible;
+  }
+
+  .sidebar__heading,
+  .shortcuts {
+    display: none;
+  }
+
+  .brand {
+    font-size: 16px;
+    white-space: nowrap;
+  }
+
+  /* Only the coloured status dot fits in the top bar; its label is a tooltip. */
+  .device-status {
+    padding: 6px;
+    background: none;
+  }
+
+  .device-status__label {
+    display: none;
+  }
+
+  .sidebar__logout {
+    margin-top: 0;
+    padding: 6px 12px;
+    white-space: nowrap;
+  }
+
+  .main {
+    border-radius: 0;
+  }
+
+  .now-playing__hero {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 32px 16px 16px;
+  }
+
+  .now-playing__cover {
+    width: min(70vw, 280px);
+    align-self: center;
+  }
+
+  .now-playing__body {
+    padding: 16px 16px 32px;
+  }
+
+  .track-row {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    padding: 8px 4px;
+    gap: 12px;
+  }
+
+  .track-row__index {
+    display: none;
+  }
+
+  .player-bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+    gap: 4px 12px;
+    padding: 8px 12px;
+    background: var(--bg-elevated);
+  }
+
+  .player-bar__volume,
+  .progress__time,
+  .btn-icon--extra {
+    display: none;
+  }
+
+  .player-bar__art {
+    width: 44px;
+    height: 44px;
+  }
+
+  /* `display: contents` lets the controls and progress bar sit directly in
+     the player-bar grid: controls next to the track info, progress on its
+     own full-width row underneath. */
+  .player-bar__center {
+    display: contents;
+  }
+
+  .controls {
+    gap: 4px;
+  }
+
+  .progress {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+}
